@@ -57,6 +57,8 @@ while True:
         try:
             llm_res = get_llm_responce(st.session_state.llm_messages_array)
         except Exception as e:
+            err_detail = getattr(getattr(e, "response", None), "text", str(e))
+            print(f"Attempt {retry_num} failed: {err_detail}", flush=True)
             if retry_num == 2:
                 st.session_state.llm_messages_array = st.session_state.llm_messages_array[
                                                       :1] + st.session_state.llm_messages_array[-2:]
@@ -64,6 +66,7 @@ while True:
                 st.session_state.llm_messages_array = st.session_state.llm_messages_array[
                                                       :1] + st.session_state.llm_messages_array[-1:]
             if retry_num == 4:
+                st.error(f"API Error: {err_detail}")
                 assistant_msg_show("Sorry. The assistant cannot respond right now")
                 st.stop()
             time.sleep(15)

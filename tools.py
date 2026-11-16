@@ -121,7 +121,7 @@ def flashcards_to_file(tsv_input:str, filename: str = "flashcards.tsv") -> str:
 
     if not filename.endswith(".tsv"):
         filename += ".tsv"
-    path = FILE_DIR+filename
+    path = os.path.join(FILE_DIR, filename)
 
     rows = [line.split("\t") for line in cleaned.splitlines() if line.strip()]
 
