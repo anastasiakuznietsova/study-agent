@@ -1,12 +1,10 @@
 import streamlit as st
 import json
 import requests
-import re
 from config import TOOLS
 from tools import web_search, search_in_file, extract_document_keypoints, flashcards_to_file
 import os
 import re
-import time
 
 
 API_KEY= os.getenv("API_KEY")

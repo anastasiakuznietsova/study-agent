@@ -10,7 +10,7 @@ import docx
 
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-MODEL_NAME = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 FILE_DIR = 'uploads/'
 
 def get_file_text(file_path: str) -> str:

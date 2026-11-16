@@ -1,8 +1,6 @@
 import time
 import streamlit as st
 import os
-import json
-import requests
 from config import SYSTEM_PROMPT
 from helpers_main import add_to_history_user_msg, user_msg_show, show_chat_history, get_llm_responce, process_tools_call, assistant_msg_show
 
