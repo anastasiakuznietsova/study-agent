@@ -53,7 +53,7 @@ if prompt := st.chat_input("How can I help you today? ", accept_file=True, accep
 
 while True:
     llm_res = None
-    if st.session_state.llm_messages_array[-1]["role"] == "system":    break
+    if st.session_state.llm_messages_array[-1]["role"] not in ["user", "tool"]:     break
 
     for retry_num in range(5):
         try:
@@ -66,7 +66,7 @@ while True:
                 st.session_state.llm_messages_array = st.session_state.llm_messages_array[
                                                       :1] + st.session_state.llm_messages_array[-1:]
             if retry_num == 4:
-                assistant_msg_show("Sorry. The assistant is too dumn for this world. Bye!!")
+                assistant_msg_show("Sorry. The assistant cannot respond right now")
                 st.stop()
             time.sleep(15)
             print(e)
@@ -76,13 +76,27 @@ while True:
     if not llm_res:
         break
     st.session_state.llm_messages_array.append(llm_res)
-    st.session_state.messages.append(llm_res)
 
     llm_tool_calls = llm_res.get("tool_calls")
     if llm_tool_calls:
         tool_calls_history = process_tools_call(llm_tool_calls)
         st.session_state.llm_messages_array.extend(tool_calls_history)
+
+        for tool_msg in tool_calls_history:
+            if tool_msg.get("name") == "flashcards_to_file":
+                file_path = tool_msg["content"]
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": f"Ready to download: `{os.path.basename(file_path)}`",
+                    "tsv_path": file_path,
+                })
+                st.session_state.llm_messages_array.append({
+                    "role": "assistant",
+                    "content": "File saved.",
+                })
+                st.rerun()
         continue
+    st.session_state.messages.append(llm_res)
 
     content = llm_res.get("content")
     if content:

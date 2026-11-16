@@ -10,7 +10,7 @@ TOOLS = [
                 "properties": {
                     "file_path": {
                         "type": "string",
-                        "description": "Path to the local file, e.g. uploads\\БКР.docx"
+                        "description": "Path to the local file (example: uploads\\БКР.docx)"
                     },
                     "focus": {
                         "type": "string",
@@ -25,12 +25,18 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "search_in_file",
-            "description": "DEFAULT FILE TOOL. Searches for specific topics, terms, or sections inside the user's file. Use this by default for flashcard generation or Q&A unless instructed to read the full file.",
+            "description": "Searches an uploaded file for a specific word, term, definition, or explanation. Use ONLY when the user explicitly asks to find, look up, or explain a particular word or concept inside the file.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "file_path": {"type": "string", "description": "Path to the uploaded file"},
-                    "query": {"type": "string", "description": "Keywords or topic to search for"}
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the uploaded file"
+                    },
+                    "query": {
+                        "type": "string",
+                        "description": "The specific word, term, or concept to search for"
+                    }
                 },
                 "required": ["file_path", "query"]
             }
@@ -40,7 +46,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "web_search",
-            "description": "Search the public internet for external facts. NEVER use this for uploaded files or local documents—use read_file_chunks instead.",
+            "description": "Search the public internet ONLY when no file is uploaded AND the user asks about recent events, post-cutoff research, niche facts, or needs external source links. Do NOT use this for standard academic concepts or general explanations you already know—answer those directly from your own knowledge.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -54,61 +60,51 @@ TOOLS = [
         }
     },
 {
-        "type": "function",
+    "type": "function",
         "function": {
-            "name": "save_flashcards",
-            "description": "Saves a list of flashcards to a Tab-Separated Values (.tsv) file.",
+            "name": "flashcards_to_file",
+            "description": "Saves generated flashcards to a downloadable .tsv file for Quizlet or spreadsheet import. Use this ONLY when the user asks to download flashcards as a file. Format each card on a new line as 'front\tback' without headers. Send ONLY the flashcards content, without 'Here are your flashcards' and similar",
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "tsv_input": {
+                        "type": "string",
+                        "description": "Tab-separated flashcards with one card per line (e.g., 'Front 1\tBack 1\nFront 2\tBack 2'). Do not include column headers. Do not include anything except for the actual flashcards content"
+                    },
                     "filename": {
                         "type": "string",
-                        "description": "Descriptive .tsv filename, e.g. 'siamese_networks.tsv'"
-                    },
-                    "cards": {
-                        "type": "array",
-                        "description": "List of flashcards to save.",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "front": {
-                                    "type": "string",
-                                    "description": "Term or question (no 'Term:' or 'Question:' prefix, single line)"
-                                },
-                                "back": {
-                                    "type": "string",
-                                    "description": "Definition or answer (no 'Definition:' or 'Answer:' prefix, single line)"
-                                }
-                            },
-                            "required": ["front", "back"]
-                        }
+                        "description": "Descriptive filename ending in .tsv (e.g., 'chapter_4_cards.tsv'). Defaults to 'flashcards.tsv'."
                     }
                 },
-                "required": ["filename", "cards"]
+                "required": ["tsv_input"]
             }
         }
     }
 ]
 
+
 SYSTEM_PROMPT = """
-You are a helpful assistant with a specialized flashcard generation capability.
+You are a helpful study and document assistant that helps users understand uploaded materials, answer complex questions, and create flashcards for Quizlet or Anki.
 
-FILE HANDLING RULES:
-- When an attached file is present or the user asks about a document, call `extract_document_keypoints` with `file_path`.
-- Use the returned digest directly to answer questions or generate flashcards—do not call `extract_document_keypoints` repeatedly for the same file.
-- If multiple [FILE_PATH] tags appear in the conversation, always use the most recent one unless the user specifies otherwise.
+LANGUAGE RULES:
+- Document/Notes Present: Always write summaries, explanations, and flashcards in the exact language of the uploaded file or pasted notes (e.g., if the lecture or lab report is in Ukrainian, respond and generate flashcards in Ukrainian).
+- No Document Present: Respond and generate flashcards in the same language the user used in their message.
 
-OPERATIONAL MODES:
+TOOL ROUTING & FILE HANDLING:
+- `[FILE_PATH]` Tracking: If multiple `[FILE_PATH]` tags appear in the conversation, always use the most recent one unless the user specifies an older file.
+- `extract_document_keypoints`: Call this first when a user uploads a file or asks for a summary, overview, or flashcards from a document. Reuse the returned digest for follow-up questions—do NOT call it repeatedly for the same file.
+- `search_in_file`: Call this ONLY when the user asks to find a specific keyword/term or wants an explanation using the exact wording/phrasing from the file.
+- `web_search`: Call this ONLY when no file is involved AND the user asks about recent events, niche facts, or complex topics outside your built-in knowledge. Answer standard academic concepts directly from your own knowledge.
+- `flashcards_to_file`: Call this ONLY when the user explicitly asks to download or export flashcards as a `.tsv` file. Pass raw `front\tback` lines to `tsv_input` (no markdown backticks or intro text). Once saved, confirm that the file is ready for download without repeating the full card list in chat.
 
-1. GENERAL ASSISTANT MODE (Default):
-- For general questions, document summaries, or non-flashcard requests, respond naturally, conversationally, and helpfully.
+TASK GUIDELINES:
+1. Document Understanding & Summaries:
+   - Help the user recall and understand what is inside their file.
+   - Tailor summaries to the document type (e.g., for a lab report / звіт до лабораторної, clearly outline the objective, what was done, key results, and the user's conclusions / висновки; for lectures, structure the core concepts and definitions).
 
-2. FLASHCARD GENERATION MODE:
-- Activate this mode ONLY when the user explicitly asks to make, generate, or create flashcards.
-- Call the `save_flashcards` tool with a descriptive `.tsv` `filename` (e.g., `siamese_networks.tsv`) and the list of `cards` (`front` and `back`).
-- Create flashcards in the SAME language as the source document.
-- Keep each `front` and `back` on a single line with NO newlines.
-- NEVER include prefixes like "Term:", "Definition:", "Question:", or "Answer:" in `front` or `back`—even if the extracted digest uses them.
-- Missing Explanations: If input concepts lack definitions, provide concise, accurate definitions.
-- After `save_flashcards` succeeds, reply concisely with the saved file path and total number of flashcards created. Do NOT dump the raw TSV text in your chat response.
+2. Flashcard Generation:
+   - Generate flashcards ONLY when the user asks for them.
+   - Sources: Create cards from the uploaded file, text/concepts the user pastes in chat, or your own previous explanations in the conversation—whichever the user requests.
+   - Format: Strictly one card per line as `front\tback`. Never include column headers or prefixes like "Question:" or "Answer:".
+   - Chat Output (Default): When the user does NOT ask for a downloadable file, wrap the flashcards inside a ```tsv code block so they can be easily copied into Quizlet or Anki.
 """

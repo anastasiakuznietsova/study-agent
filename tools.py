@@ -1,8 +1,9 @@
 import urllib.parse
 from ddgs import DDGS
-from pathlib import Path
 import time
 import os
+import json
+import csv
 import pypdf
 import requests
 import docx
@@ -10,6 +11,7 @@ import docx
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
 MODEL_NAME = os.getenv("GEMINI_API_KEY")
+FILE_DIR = 'uploads/'
 
 def get_file_text(file_path: str) -> str:
     file_path = os.path.normpath(file_path)
@@ -49,8 +51,6 @@ def get_file_text(file_path: str) -> str:
         return content
     except Exception as e:
         return f"Error reading file: {str(e)}"
-
-
 
 def extract_document_keypoints(file_path: str, focus: str = "all key terms, definitions, formulas, and core concepts") -> str:
     full_text = get_file_text(file_path)
@@ -116,36 +116,20 @@ def search_in_file(file_path: str, query: str) -> str:
     return "\n---\n".join(matches)
 
 
-from pathlib import Path
-from pydantic import BaseModel
+def flashcards_to_file(tsv_input:str, filename: str = "flashcards.tsv") -> str:
+    cleaned = tsv_input.strip().removeprefix("```tsv").removeprefix("```").removesuffix("```").strip()
 
+    if not filename.endswith(".tsv"):
+        filename += ".tsv"
+    path = FILE_DIR+filename
 
-class Flashcard(BaseModel):
-    front: str
-    back: str
+    rows = [line.split("\t") for line in cleaned.splitlines() if line.strip()]
 
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        tsv_writer = csv.writer(f, delimiter="\t")
+        tsv_writer.writerows(rows)
 
-OUTPUT_DIR = Path("./flashcards_output").resolve()
-
-
-def save_flashcards(filename: str, cards: list[Flashcard]) -> str:
-    try:
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        safe_name = Path(filename).name
-        if not safe_name.endswith(".tsv"):
-            safe_name += ".tsv"
-
-        path = OUTPUT_DIR / safe_name
-
-        lines = [
-            f"{c.front.replace(chr(10), ' ').strip()}\t{c.back.replace(chr(10), ' ').strip()}"
-            for c in cards
-        ]
-        path.write_text("\n".join(lines), encoding="utf-8")
-
-        return f"Saved {len(cards)} flashcards to '{path}'."
-    except Exception as e:
-        return f"Error saving flashcards: {e}"
+    return path
 
 
 def web_search(query: str, max_results: int = 3) -> str:
@@ -157,7 +141,6 @@ def web_search(query: str, max_results: int = 3) -> str:
             return (
                 f"No direct page snippets found.\n"
                 f"YouTube Link: https://www.youtube.com/results?search_query={encoded_query}\n"
-                f"Pinterest Link: https://www.pinterest.com/search/pins/?q={encoded_query}\n"
             )
 
         output = []
